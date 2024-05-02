@@ -20,15 +20,17 @@ func middlewareCors(next http.Handler) http.Handler{
 
 func main(){
   mux := http.NewServeMux()
-  mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request){
-    fmt.Println("Serving not found")
-    http.NotFound(w, req)
-    return
-  })
-  corsMux := middlewareCors(mux)
+  // mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request){
+  //   fmt.Println("Asking for home page huh")
+  //   http.FileServer(http.Dir("."))
+  //   return
+  // })
+  fmt.Println("Trying")
+  mux.Handle("/", http.FileServer(http.Dir(".")))
+  //corsMux := middlewareCors(mux)
   var server http.Server
   server.Addr = ":8080"
-  server.Handler = corsMux
+  server.Handler = mux
   server.ListenAndServe()
 
 }
