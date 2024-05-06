@@ -26,7 +26,16 @@ func main(){
   //   return
   // })
   fmt.Println("Trying")
-  mux.Handle("/", http.FileServer(http.Dir(".")))
+  mux.Handle("/app/*", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+  mux.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
+    w.WriteHeader(200)
+    w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+    body := []byte("OK")
+    _, err := w.Write(body)
+    if err != nil{
+      fmt.Println("Error sending Body")
+    }
+  })
   //corsMux := middlewareCors(mux)
   var server http.Server
   server.Addr = ":8080"
