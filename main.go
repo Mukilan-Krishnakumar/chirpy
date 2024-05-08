@@ -5,6 +5,21 @@ import (
   "net/http"
 )
 
+type apiConfig struct{
+  fileServerHits int
+}
+
+
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler{
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+    cfg.fileServerHits++
+    fmt.Println("This is the server hit", cfg.fileServerHits)
+    next.ServeHTTP(w, r)
+  })
+
+}
+
+
 func middlewareCors(next http.Handler) http.Handler{
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
     w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -19,6 +34,7 @@ func middlewareCors(next http.Handler) http.Handler{
 }
 
 func main(){
+  var apiCfg apiConfig
   mux := http.NewServeMux()
   // mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request){
   //   fmt.Println("Asking for home page huh")
@@ -26,8 +42,8 @@ func main(){
   //   return
   // })
   fmt.Println("Trying")
-  mux.Handle("/app/*", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
-  mux.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
+  mux.Handle("/app/*", http.StripPrefix("/app", apiCfg.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
+  mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, req *http.Request) {
     w.WriteHeader(200)
     w.Header().Add("Content-Type", "text/plain; charset=utf-8")
     body := []byte("OK")
@@ -36,10 +52,32 @@ func main(){
       fmt.Println("Error sending Body")
     }
   })
+  mux.HandleFunc("GET /metrics", apiCfg.hitsCalculator)
+  mux.HandleFunc("/reset", apiCfg.resetHits)
+
+
   //corsMux := middlewareCors(mux)
   var server http.Server
   server.Addr = ":8080"
   server.Handler = mux
   server.ListenAndServe()
 
+}
+
+
+func (cfg *apiConfig) hitsCalculator(w http.ResponseWriter, req *http.Request){
+  w.WriteHeader(200)
+  w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+  hits := fmt.Sprintf("Hits: %v", cfg.fileServerHits)
+  body := []byte(hits)
+  _, err := w.Write(body)
+  if err != nil{
+    fmt.Println("Error sending Body")
+  }
+
+}
+
+func (cfg *apiConfig) resetHits(w http.ResponseWriter, req *http.Request){
+  w.WriteHeader(200)
+  cfg.fileServerHits = 0
 }
