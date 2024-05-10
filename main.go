@@ -43,7 +43,25 @@ func main(){
   // })
   fmt.Println("Trying")
   mux.Handle("/app/*", http.StripPrefix("/app", apiCfg.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-  mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, req *http.Request) {
+  mux.HandleFunc("GET /admin/metrics", func(w http.ResponseWriter, req *http.Request){
+    w.WriteHeader(200)
+    html_text := `
+<html>
+
+<body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+</body>
+
+</html>
+`
+    serve_html := []byte(fmt.Sprintf(html_text, apiCfg.fileServerHits))
+    _, err := w.Write(serve_html)
+    if err != nil{
+      fmt.Println("Couldn't load metrics")
+    }
+  })
+  mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, req *http.Request) {
     w.WriteHeader(200)
     w.Header().Add("Content-Type", "text/plain; charset=utf-8")
     body := []byte("OK")
@@ -52,8 +70,8 @@ func main(){
       fmt.Println("Error sending Body")
     }
   })
-  mux.HandleFunc("GET /metrics", apiCfg.hitsCalculator)
-  mux.HandleFunc("/reset", apiCfg.resetHits)
+  mux.HandleFunc("GET /api/metrics", apiCfg.hitsCalculator)
+  mux.HandleFunc("/api/reset", apiCfg.resetHits)
 
 
   //corsMux := middlewareCors(mux)
