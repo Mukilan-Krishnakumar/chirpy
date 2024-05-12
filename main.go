@@ -3,6 +3,7 @@ package main
 import (
   "fmt"
   "net/http"
+  "encoding/json"
 )
 
 type apiConfig struct{
@@ -72,6 +73,7 @@ func main(){
   })
   mux.HandleFunc("GET /api/metrics", apiCfg.hitsCalculator)
   mux.HandleFunc("/api/reset", apiCfg.resetHits)
+  mux.HandleFunc("POST /api/validate_chirp",validateChirp)
 
 
   //corsMux := middlewareCors(mux)
@@ -99,3 +101,56 @@ func (cfg *apiConfig) resetHits(w http.ResponseWriter, req *http.Request){
   w.WriteHeader(200)
   cfg.fileServerHits = 0
 }
+
+func validateChirp(w http.ResponseWriter, req *http.Request){
+  fmt.Println("Validating Chirp..")
+  type parameters struct{
+    Body string `json:"body"`
+  }
+
+  type errorJSON struct{
+    Error string `json:"error"`
+  }
+
+  type validJSON struct{
+    Valid bool `json:"valid"`
+  }
+
+  decoder := json.NewDecoder(req.Body)
+  params := parameters{}
+  err := decoder.Decode(&params)
+
+  if err != nil{
+    fmt.Println("Error decoding parameters")
+    error_msg := errorJSON{
+      Error: "Something went wrong",
+    }
+    error_json, _ := json.Marshal(error_msg)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(500)
+    w.Write(error_json)
+    return
+  }
+
+  if len(params.Body) > 140{
+    error_msg := errorJSON{
+      Error: "Chirp is too long",
+    }
+    error_json, _ := json.Marshal(error_msg)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(400)
+    w.Write(error_json)
+    return
+  }
+
+  valid_msg := validJSON{
+    Valid: true,
+  }
+  valid_json, _ := json.Marshal(valid_msg)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(200)
+  w.Write(valid_json)
+  return
+
+}
+
