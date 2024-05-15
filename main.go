@@ -4,12 +4,28 @@ import (
   "fmt"
   "net/http"
   "encoding/json"
+  "strings"
 )
 
 type apiConfig struct{
   fileServerHits int
 }
 
+type parameters struct{
+  Body string `json:"body"`
+}
+
+type cleanedParameters struct{
+  CleanedBody string `json:"cleaned_body"`
+}
+
+type errorJSON struct{
+  Error string `json:"error"`
+}
+
+type validJSON struct{
+  Valid bool `json:"valid"`
+}
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler{
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
@@ -104,53 +120,72 @@ func (cfg *apiConfig) resetHits(w http.ResponseWriter, req *http.Request){
 
 func validateChirp(w http.ResponseWriter, req *http.Request){
   fmt.Println("Validating Chirp..")
-  type parameters struct{
-    Body string `json:"body"`
-  }
-
-  type errorJSON struct{
-    Error string `json:"error"`
-  }
-
-  type validJSON struct{
-    Valid bool `json:"valid"`
-  }
 
   decoder := json.NewDecoder(req.Body)
   params := parameters{}
   err := decoder.Decode(&params)
 
   if err != nil{
-    fmt.Println("Error decoding parameters")
-    error_msg := errorJSON{
-      Error: "Something went wrong",
-    }
-    error_json, _ := json.Marshal(error_msg)
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(500)
-    w.Write(error_json)
+    respondWithError(w, 500, "Something went wrong")
     return
   }
 
   if len(params.Body) > 140{
-    error_msg := errorJSON{
-      Error: "Chirp is too long",
-    }
-    error_json, _ := json.Marshal(error_msg)
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(400)
-    w.Write(error_json)
+    respondWithError(w, 400, "Chirp is too long")
     return
   }
-
-  valid_msg := validJSON{
-    Valid: true,
+    
+  cleaned_response := badWordReplacement(params.Body)
+  cleaned_body := cleanedParameters{
+    CleanedBody: cleaned_response,
   }
-  valid_json, _ := json.Marshal(valid_msg)
-  w.Header().Set("Content-Type", "application/json")
-  w.WriteHeader(200)
-  w.Write(valid_json)
+  respondWithJSON(w, 200, cleaned_body)
   return
 
 }
 
+func respondWithError(w http.ResponseWriter, code int, msg string){
+    error_msg := errorJSON{
+      Error: msg,
+    }
+    error_json, _ := json.Marshal(error_msg)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(code)
+    w.Write(error_json)
+    return
+
+}
+
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}){
+    responseJson, _ := json.Marshal(payload)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(code)
+    w.Write(responseJson)
+    return
+}
+
+func badWordReplacement(input_text string) (cleaned_response string){ 
+  curse_words := []string{"kerfuffle", "sharbert", "fornax"}
+  curse_words_ctr := 0
+  cleaned_words := []string{}
+
+  for _, word := range strings.Split(input_text, " "){
+    check_word := strings.ToLower(word)
+    replace_word := word
+    for _, curse_word := range curse_words{
+      if curse_word == check_word{
+        replace_word = "****"
+      }
+    }
+    if replace_word != word{
+        curse_words_ctr = curse_words_ctr + 1
+        cleaned_words = append(cleaned_words, replace_word)
+      }else{
+        cleaned_words = append(cleaned_words, word)
+      }
+  }
+
+  return strings.Join(cleaned_words, " ")
+
+}
