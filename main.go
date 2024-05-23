@@ -5,11 +5,20 @@ import (
   "net/http"
   "encoding/json"
   "strings"
+  "sync"
+  "os"
+  "errors"
 )
 
 type apiConfig struct{
   fileServerHits int
 }
+
+type DB struct{
+  path string
+  mux *sync.RWMutex
+}
+
 
 type parameters struct{
   Body string `json:"body"`
@@ -17,6 +26,15 @@ type parameters struct{
 
 type cleanedParameters struct{
   CleanedBody string `json:"cleaned_body"`
+}
+
+type Chirp struct{
+  id int `json:"id"`
+  body string `json:"body"`
+}
+
+type DBStructure struct{
+  Chirps map[int]Chirp `json:"chirps"`
 }
 
 type errorJSON struct{
@@ -89,8 +107,8 @@ func main(){
   })
   mux.HandleFunc("GET /api/metrics", apiCfg.hitsCalculator)
   mux.HandleFunc("/api/reset", apiCfg.resetHits)
-  mux.HandleFunc("POST /api/validate_chirp",validateChirp)
-
+  mux.HandleFunc("POST /api/chirps",createChirp)
+  NewDB("./database.json")
 
   //corsMux := middlewareCors(mux)
   var server http.Server
@@ -118,8 +136,8 @@ func (cfg *apiConfig) resetHits(w http.ResponseWriter, req *http.Request){
   cfg.fileServerHits = 0
 }
 
-func validateChirp(w http.ResponseWriter, req *http.Request){
-  fmt.Println("Validating Chirp..")
+func createChirp(w http.ResponseWriter, req *http.Request){
+  fmt.Println("Creating Chirp..")
 
   decoder := json.NewDecoder(req.Body)
   params := parameters{}
@@ -139,7 +157,7 @@ func validateChirp(w http.ResponseWriter, req *http.Request){
   cleaned_body := cleanedParameters{
     CleanedBody: cleaned_response,
   }
-  respondWithJSON(w, 200, cleaned_body)
+  respondWithJSON(w, 200  , cleaned_body)
   return
 
 }
@@ -188,4 +206,18 @@ func badWordReplacement(input_text string) (cleaned_response string){
 
   return strings.Join(cleaned_words, " ")
 
+}
+
+func NewDB (path string){
+  data, err := os.ReadFile(path)
+  if errors.Is(err, os.ErrNotExist){
+    fmt.Println("File does not exist")
+    err := os.WriteFile(path, []byte(""), 0666)
+    if err != nil{
+      fmt.Println("Couldn't write file")
+    }
+    data, _ := os.ReadFile(path)
+    fmt.Println(data)
+  } 
+  fmt.Println(data)
 }
