@@ -108,8 +108,13 @@ func main(){
   mux.HandleFunc("GET /api/metrics", apiCfg.hitsCalculator)
   mux.HandleFunc("/api/reset", apiCfg.resetHits)
   mux.HandleFunc("POST /api/chirps",createChirp)
-  NewDB("./database.json")
-
+  db, err :=  NewDB("./database.json")
+  if err != nil{
+    fmt.Println(err)
+  }
+  fmt.Println(db)
+  body := "Hello"
+  go db.CreateChirp(body)
   //corsMux := middlewareCors(mux)
   var server http.Server
   server.Addr = ":8080"
@@ -208,16 +213,27 @@ func badWordReplacement(input_text string) (cleaned_response string){
 
 }
 
-func NewDB (path string){
-  data, err := os.ReadFile(path)
+func NewDB (path string) (*DB, error){
+  _, err := os.ReadFile(path)
   if errors.Is(err, os.ErrNotExist){
     fmt.Println("File does not exist")
     err := os.WriteFile(path, []byte(""), 0666)
     if err != nil{
+      empty_db := &DB{}
       fmt.Println("Couldn't write file")
+      return empty_db, errors.New("Couldn't write file")
     }
-    data, _ := os.ReadFile(path)
-    fmt.Println(data)
   } 
-  fmt.Println(data)
+  mux := &sync.RWMutex{}
+  db := &DB{path: path, mux: mux}
+  return db, nil
+}
+
+
+func (db *DB) CreateChirp(body string){
+  // Complete the CreateChirp function and replace it in the POST /api/chirps
+  fmt.Println(body)
+  db.mux.RLock()
+  fmt.Println(db.path)
+  db.mux.RUnlock()
 }
