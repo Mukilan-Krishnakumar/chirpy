@@ -29,8 +29,8 @@ type cleanedParameters struct{
 }
 
 type Chirp struct{
-  id int `json:"id"`
-  body string `json:"body"`
+  Id int `json:"id"`
+  Body string `json:"body"`
 }
 
 type DBStructure struct{
@@ -107,14 +107,8 @@ func main(){
   })
   mux.HandleFunc("GET /api/metrics", apiCfg.hitsCalculator)
   mux.HandleFunc("/api/reset", apiCfg.resetHits)
-  mux.HandleFunc("POST /api/chirps",createChirp)
-  db, err :=  NewDB("./database.json")
-  if err != nil{
-    fmt.Println(err)
-  }
-  fmt.Println(db)
-  body := "Hello"
-  go db.CreateChirp(body)
+  mux.HandleFunc("POST /api/chirps/",createChirp)
+
   //corsMux := middlewareCors(mux)
   var server http.Server
   server.Addr = ":8080"
@@ -162,6 +156,13 @@ func createChirp(w http.ResponseWriter, req *http.Request){
   cleaned_body := cleanedParameters{
     CleanedBody: cleaned_response,
   }
+  db, err :=  NewDB("./database.json")
+  if err != nil{
+    fmt.Println(err)
+  }
+
+  go db.CreateChirp(cleaned_response)
+
   respondWithJSON(w, 200  , cleaned_body)
   return
 
@@ -231,9 +232,24 @@ func NewDB (path string) (*DB, error){
 
 
 func (db *DB) CreateChirp(body string){
-  // Complete the CreateChirp function and replace it in the POST /api/chirps
-  fmt.Println(body)
-  db.mux.RLock()
-  fmt.Println(db.path)
-  db.mux.RUnlock()
+  // Save Chirps in DB as a Map Structure
+  db.mux.Lock()
+  _, err := os.ReadFile(db.path)
+  if errors.Is(err, os.ErrNotExist){
+    fmt.Println("File did not exist")
+     }else{
+    new_chirp := Chirp{
+      Id : 1,
+      Body: body,
+    }
+  chirp_json, _ := json.Marshal(new_chirp)
+
+  err := os.WriteFile(db.path, chirp_json, 0666)
+    if err != nil{
+      fmt.Println("Couldn't create file")
+    }
+
+
+  }
+  db.mux.Unlock()
 }
